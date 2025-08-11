@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -13,6 +12,8 @@ import { Visitors } from './pages/Visitors';
 import { Attendance } from './pages/Attendance';
 import { Incidents } from './pages/Incidents';
 import { Cards } from './pages/Cards';
+import Reports from './pages/Reports';
+import { Settings } from './pages/Settings';
 
 function App() {
   return (
@@ -74,6 +75,22 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Cards />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Layout>
+                <Settings />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Layout>
+                <Reports />
               </Layout>
             </ProtectedRoute>
           } />

@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, LogOut, Clock } from 'lucide-react';
 import { Visitor } from '../types';
 import { visitorService } from '../services/visitorService';
+import { getPhotoUrl, getFallbackImage } from '../utils/photoUtils';
 import { format } from 'date-fns';
+import { VisitorModal } from '../components/VisitorModal';
 
 export function Visitors() {
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
 
   useEffect(() => {
     loadVisitors();
@@ -63,12 +67,29 @@ export function Visitors() {
 
   return (
     <div className="space-y-6">
+      {isModalOpen && (
+        <VisitorModal
+          visitor={selectedVisitor}
+          onClose={() => setIsModalOpen(false)}
+          onSave={() => {
+            loadVisitors();
+            setIsModalOpen(false);
+          }}
+        />
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Visitors</h1>
           <p className="text-gray-600 mt-2">Manage visitor registration and check-ins</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2">
+        <button 
+          onClick={() => {
+            setSelectedVisitor(null);
+            setIsModalOpen(true);
+          }}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+        >
           <Plus className="h-4 w-4" />
           <span>Register Visitor</span>
         </button>
@@ -133,8 +154,11 @@ export function Visitors() {
                     <div className="flex items-center">
                       <img
                         className="h-10 w-10 rounded-full object-cover"
-                        src={visitor.photo_path}
+                        src={getPhotoUrl(visitor.photo_path)}
                         alt={visitor.full_name}
+                        onError={(e) => {
+                          e.currentTarget.src = getFallbackImage();
+                        }}
                       />
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
@@ -173,7 +197,13 @@ export function Visitors() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button 
+                        onClick={() => {
+                          setSelectedVisitor(visitor);
+                          setIsModalOpen(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
                       {!visitor.exit_time && (

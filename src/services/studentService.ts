@@ -1,47 +1,103 @@
 import { Student } from '../types';
-import { mockStudents } from './mockData';
-
-let students = [...mockStudents];
-let nextId = Math.max(...students.map(s => s.id)) + 1;
+import apiClient from '../config/api';
 
 export const studentService = {
+  // Get all students
   async getAll(): Promise<Student[]> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return students;
+    try {
+      const response = await apiClient.get<Student[]>('/students');
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch students:', error);
+      throw error;
+    }
   },
 
+  // Get student by ID
   async getById(id: number): Promise<Student | null> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return students.find(s => s.id === id) || null;
+    try {
+      const response = await apiClient.get<Student>(`/students/${id}`);
+      return response.data || null;
+    } catch (error) {
+      console.error(`Failed to fetch student ${id}:`, error);
+      throw error;
+    }
   },
 
+  // Get student by code
+  async getByCode(code: string): Promise<Student | null> {
+    try {
+      const response = await apiClient.get<Student>(`/students/code/${code}`);
+      return response.data || null;
+    } catch (error) {
+      console.error(`Failed to fetch student by code ${code}:`, error);
+      throw error;
+    }
+  },
+
+  // Create new student
   async create(studentData: Omit<Student, 'id' | 'created_at'>): Promise<Student> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const newStudent: Student = {
-      ...studentData,
-      id: nextId++,
-      created_at: new Date().toISOString()
-    };
-    students.push(newStudent);
-    return newStudent;
+    try {
+      const response = await apiClient.post<Student>('/students', studentData);
+      return response.data!;
+    } catch (error) {
+      console.error('Failed to create student:', error);
+      throw error;
+    }
   },
 
+  // Update student
   async update(id: number, studentData: Partial<Student>): Promise<Student | null> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const index = students.findIndex(s => s.id === id);
-    if (index === -1) return null;
-    
-    students[index] = { ...students[index], ...studentData };
-    return students[index];
+    try {
+      const response = await apiClient.put<Student>(`/students/${id}`, studentData);
+      return response.data || null;
+    } catch (error) {
+      console.error(`Failed to update student ${id}:`, error);
+      throw error;
+    }
   },
 
+  // Delete student
   async delete(id: number): Promise<boolean> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const index = students.findIndex(s => s.id === id);
-    if (index === -1) return false;
-    
-    students.splice(index, 1);
-    return true;
+    try {
+      await apiClient.delete(`/students/${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete student ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Sync students
+  async sync(syncData: any): Promise<any> {
+    try {
+      const response = await apiClient.post('/students/sync', syncData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to sync students:', error);
+      throw error;
+    }
+  },
+
+  // Get distinct grades
+  async getDistinctGrades(): Promise<string[]> {
+    try {
+      const response = await apiClient.get<string[]>('/students/distinct/grades');
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch distinct grades:', error);
+      throw error;
+    }
+  },
+
+  // Get distinct classrooms
+  async getDistinctClassrooms(): Promise<string[]> {
+    try {
+      const response = await apiClient.get<string[]>('/students/distinct/classrooms');
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch distinct classrooms:', error);
+      throw error;
+    }
   }
 };

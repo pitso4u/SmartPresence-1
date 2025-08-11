@@ -46,6 +46,8 @@ export interface AttendanceLog {
   user_id: number;
   user_type: 'student' | 'employee';
   timestamp: string;
+  status: 'present' | 'late' | 'absent';
+  method: 'manual' | 'qr' | 'facial';
   match_confidence: number;
   synced: number;
 }
@@ -66,6 +68,8 @@ export interface Card {
   user_id: number;
   user_type: 'student' | 'employee';
   card_image_path: string;
+  qr_code_path?: string;
+  qr_code_url?: string;
   generated_at: string;
 }
 
@@ -86,4 +90,5 @@ export interface AuthUser {
   role: string;
   full_name: string;
   email: string;
+  token?: string; // Add optional token property
 }

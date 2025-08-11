@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   Users, 
@@ -7,7 +6,9 @@ import {
   ClipboardList, 
   AlertTriangle, 
   CreditCard,
-  LayoutDashboard
+  LayoutDashboard,
+  FileText,
+  Settings as SettingsIcon
 } from 'lucide-react';
 
 const navigation = [
@@ -18,6 +19,8 @@ const navigation = [
   { name: 'Attendance', href: '/attendance', icon: ClipboardList },
   { name: 'Incidents', href: '/incidents', icon: AlertTriangle },
   { name: 'ID Cards', href: '/cards', icon: CreditCard },
+  { name: 'Reports', href: '/reports', icon: FileText },
+  { name: 'Settings', href: '/settings', icon: SettingsIcon },
 ];
 
 export function Sidebar() {

@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { Incident } from '../types';
 import { incidentService } from '../services/incidentService';
 import { format } from 'date-fns';
+import { IncidentModal } from '../components/IncidentModal';
 
 export function Incidents() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
   useEffect(() => {
     loadIncidents();
@@ -41,7 +44,9 @@ export function Incidents() {
     }
   };
 
-  const getIncidentTypeColor = (type: string) => {
+  const getIncidentTypeColor = (type: string | null | undefined) => {
+    if (!type) return 'bg-gray-100 text-gray-800';
+    
     switch (type.toLowerCase()) {
       case 'security':
         return 'bg-red-100 text-red-800';
@@ -64,12 +69,28 @@ export function Incidents() {
 
   return (
     <div className="space-y-6">
+      {isModalOpen && (
+        <IncidentModal
+          incident={selectedIncident}
+          onClose={() => setIsModalOpen(false)}
+          onSave={() => {
+            loadIncidents();
+            setIsModalOpen(false);
+          }}
+        />
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Incidents</h1>
           <p className="text-gray-600 mt-2">Track and manage security and behavioral incidents</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2">
+        <button
+          onClick={() => {
+            setSelectedIncident(null);
+            setIsModalOpen(true);
+          }}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+        >
           <Plus className="h-4 w-4" />
           <span>Report Incident</span>
         </button>
@@ -159,7 +180,13 @@ export function Incidents() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button className="text-indigo-600 hover:text-indigo-900">
+                      <button
+                        onClick={() => {
+                          setSelectedIncident(incident);
+                          setIsModalOpen(true);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button

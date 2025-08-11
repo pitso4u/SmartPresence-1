@@ -6,9 +6,7 @@ import { GraduationCap, Lock, User } from 'lucide-react';
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { user, login } = useAuth();
+  const { user, login, isLoading, error } = useAuth();
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -16,14 +14,7 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    const success = await login(username, password);
-    if (!success) {
-      setError('Invalid username or password');
-    }
-    setIsLoading(false);
+    await login(username, password);
   };
 
   return (
