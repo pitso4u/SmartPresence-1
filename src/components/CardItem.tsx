@@ -1,5 +1,5 @@
 import { Card } from '../types';
-import { IDCard } from './IDCard';
+import IDCard from './IDCard';
 
 interface CardItemProps {
   card: Card;
@@ -13,7 +13,7 @@ interface CardItemProps {
     job_title?: string;
   };
   isSelected: boolean;
-  onToggleSelect: (cardId: number) => void;
+  onToggleSelect: (cardId: string) => void;
 }
 
 export function CardItem({ card, userInfo, isSelected, onToggleSelect }: CardItemProps) {

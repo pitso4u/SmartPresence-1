@@ -3,7 +3,7 @@ import { CreditCard, Printer } from 'lucide-react';
 import { Card } from '../types';
 import { cardService } from '../services/cardService';
 import { studentService } from '../services/studentService';
-import { IDCard } from '@/components/IDCard';
+import IDCard from '@/components/IDCard';
 import { employeeService } from '../services/employeeService';
 import { CardItem } from '../components/CardItem';
 
@@ -12,35 +12,100 @@ export function Cards() {
   const [students, setStudents] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCards, setSelectedCards] = useState<number[]>([]);
+  const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'all' | 'students' | 'employees'>('all');
   const [isPrinting, setIsPrinting] = useState(false);
   const printComponentRef = useRef<HTMLDivElement>(null);
 
   // Helper function to get user info based on card type
   const getUserInfo = useCallback((card: Card) => {
-    if (card.user_type === 'student') {
-      const student = students?.find(s => s.id === card.user_id);
-      console.log('Finding student for card:', { card, student });
-      return student ? {
-        ...student,
-        name: student.full_name || student.name || 'Student',
-        identifier: student.student_code || `ID: ${student.id}`,
-        grade: student.grade,
-        classroom: student.classroom,
-        photo_path: student.photo_path,
-        client_uuid: student.client_uuid
-      } : null;
-    } else if (card.user_type === 'employee') {
-      const employee = employees?.find(e => e.id === card.user_id);
-      return employee ? {
-        ...employee,
-        name: employee.full_name || employee.name || 'Employee',
-        identifier: employee.employee_id || employee.identifier || `ID: ${employee.id}`,
-        job_title: employee.job_title || 'Staff'
-      } : null;
+    if (!card || card.user_id === undefined || card.user_id === null) {
+      console.warn('Invalid card data:', card);
+      return null;
     }
-    return null;
+
+    // Convert user_id to number for comparison since student/employee IDs are numbers
+    const userId = typeof card.user_id === 'string' ? parseInt(card.user_id, 10) : card.user_id;
+    
+    if (isNaN(userId)) {
+      console.warn('Invalid user_id in card:', card.user_id);
+      return null;
+    }
+
+    console.log('Getting user info for card:', { 
+      cardId: card.id, 
+      userId: userId,
+      userType: card.user_type,
+      studentsCount: students?.length,
+      employeesCount: employees?.length
+    });
+
+    try {
+      if (card.user_type === 'student') {
+        if (!students || students.length === 0) {
+          console.warn('No students data available');
+          return null;
+        }
+
+        // Find student by matching id
+        const student = students.find(s => s.id === userId);
+        
+        if (!student) {
+          console.warn('No matching student found for card:', {
+            cardId: card.id,
+            userId: userId,
+            userType: card.user_type,
+            availableStudentIds: students.map(s => s.id)
+          });
+          return null;
+        }
+
+        return {
+          ...student,
+          name: student.full_name || student.name || 'Student',
+          identifier: student.student_code || `ID: ${student.id}`,
+          grade: student.grade,
+          classroom: student.classroom,
+          photo: student.photo_path,
+          photo_path: student.photo_path,
+          client_uuid: student.client_uuid
+        };
+      } 
+      
+      if (card.user_type === 'employee') {
+        if (!employees || employees.length === 0) {
+          console.warn('No employees data available');
+          return null;
+        }
+
+        // Find employee by matching id
+        const employee = employees.find(e => e.id === userId);
+        
+        if (!employee) {
+          console.warn('No matching employee found for card:', {
+            cardId: card.id,
+            userId: userId,
+            userType: card.user_type,
+            availableEmployeeIds: employees.map(e => e.id)
+          });
+          return null;
+        }
+
+        return {
+          ...employee,
+          name: employee.full_name || employee.name || 'Employee',
+          identifier: employee.employee_id || employee.identifier || `ID: ${employee.id}`,
+          job_title: employee.job_title || 'Staff',
+          photo: employee.photo_path
+        };
+      }
+      
+      console.warn('Unknown user type for card:', card.user_type);
+      return null;
+    } catch (error) {
+      console.error('Error in getUserInfo:', error);
+      return null;
+    }
   }, [students, employees]);
   
   // Set up print functionality
@@ -254,13 +319,13 @@ export function Cards() {
   }, [selectedCards, cards, getUserInfo]);
   
   // Toggle card selection
-  const toggleCardSelection = useCallback((cardId: number) => {
+  const toggleCardSelection = (cardId: string) => {
     setSelectedCards(prev => 
       prev.includes(cardId) 
-        ? prev.filter(id => id !== cardId)
+        ? prev.filter(id => id !== cardId) 
         : [...prev, cardId]
     );
-  }, []);
+  };
   
   // Filter cards based on view mode
   const filteredCards = cards.filter(card => {
@@ -344,9 +409,14 @@ export function Cards() {
         employeeService.getAll()
       ]);
       
-      console.log('Initial cards data:', cardsData);
-      console.log('Students data:', studentsData);
-      console.log('Employees data:', employeesData);
+      console.log('Initial cards data:', JSON.stringify(cardsData, null, 2));
+      console.log('Students data:', JSON.stringify(studentsData, null, 2));
+      console.log('Employees data:', JSON.stringify(employeesData, null, 2));
+      
+      // Log the first few items for easier inspection
+      console.log('First card (if any):', cardsData[0] ? JSON.stringify(cardsData[0], null, 2) : 'No cards');
+      console.log('First student (if any):', studentsData[0] ? JSON.stringify(studentsData[0], null, 2) : 'No students');
+      console.log('First employee (if any):', employeesData[0] ? JSON.stringify(employeesData[0], null, 2) : 'No employees');
       
       // If no cards exist but we have students or employees, generate cards
       if (cardsData.length === 0 && (studentsData.length > 0 || employeesData.length > 0)) {

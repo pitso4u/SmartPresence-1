@@ -27,8 +27,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(currentUser);
         }
       } catch (error) {
-        console.error('Failed to get current user:', error);
-        // Don't set error here as it might be expected (user not logged in)
+        // 401 is expected when user is not logged in
+        if (error instanceof Error && error.message.includes('401')) {
+          console.log('No active session found - user is not logged in');
+        } else {
+          console.error('Failed to get current user:', error);
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false);

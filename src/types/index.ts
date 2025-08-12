@@ -64,13 +64,16 @@ export interface Incident {
 }
 
 export interface Card {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   user_type: 'student' | 'employee';
-  card_image_path: string;
+  issue_date: string;
+  expiry_date: string;
+  status: 'active' | 'expired' | 'suspended';
+  card_image_path?: string;
   qr_code_path?: string;
   qr_code_url?: string;
-  generated_at: string;
+  generated_at?: string; // Keeping for backward compatibility
 }
 
 export interface User {

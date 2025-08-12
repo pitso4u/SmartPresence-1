@@ -1,219 +1,157 @@
+import { User, Check, Mail, Phone } from 'lucide-react';
 import { Card } from '../types';
-import { CreditCard, User, Mail, Phone } from 'lucide-react';
+import React from 'react';
+
+interface UserInfo {
+  name: string;
+  identifier?: string;
+  grade?: string;
+  dob?: string;
+  photo?: string;
+  job_title?: string;
+  email?: string;
+  phone?: string;
+}
 
 interface IDCardProps {
   card: Card;
-  userInfo: {
-    fullName: string;
-    type: string;
-    photoUrl: string;
-    idNumber: string;
-    department: string;
-    email?: string;
-    phone?: string;
-    [key: string]: any;
-  };
+  userInfo: UserInfo | null;
   className?: string;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-export function IDCard({ card, userInfo, className = '' }: IDCardProps) {
+const IDCard: React.FC<IDCardProps> = ({
+  card,
+  userInfo,
+  className = '',
+  isSelected = false,
+  onToggleSelect,
+}) => {
   if (!userInfo) return null;
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    target.onerror = null;
+    // Use a data URL for a simple placeholder to avoid external requests
+    target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlNWU1ZTUiLz4KICA8dGV4dCB4PSI1MCIgeT0iNTUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+UGhvdG8gTm90IEF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+';
+  };
+
+  const statusColors = {
+    active: 'bg-green-100 text-green-800',
+    expired: 'bg-red-100 text-red-800',
+    suspended: 'bg-yellow-100 text-yellow-800',
+    inactive: 'bg-gray-100 text-gray-800',
+    default: 'bg-gray-100 text-gray-800'
+  };
+
+  // Ensure status is one of the valid values, default to 'inactive' if not
+  const status = ['active', 'expired', 'suspended'].includes(card.status) 
+    ? card.status 
+    : 'inactive';
+  const statusColor = statusColors[status] || statusColors.default;
+  const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+
   return (
-    <div className={`bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 ${className}`}>
+    <div
+      className={`relative bg-white rounded-lg shadow-md overflow-hidden border-2 transition-all duration-200 ${
+        isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200'
+      } ${className}`}
+    >
       {/* Card Header */}
-      <div className="bg-blue-600 text-white p-4">
+      <div className="bg-blue-600 p-4 text-white">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold">ID Card</h2>
-          <CreditCard className="h-6 w-6" />
+          <h3 className="text-lg font-semibold">{userInfo.name}</h3>
+          <span className="bg-white text-blue-600 text-xs px-2 py-1 rounded-full">
+            {card.user_type === 'student' ? 'Student' : 'Employee'}
+          </span>
         </div>
+        {userInfo.identifier && (
+          <p className="text-sm opacity-80">{userInfo.identifier}</p>
+        )}
       </div>
-      
+
       {/* Card Body */}
       <div className="p-4">
-        <div className="flex gap-4">
-          {/* Photo */}
-          <div className="w-24 h-24 bg-gray-200 rounded-md overflow-hidden">
-            <img 
-              src={userInfo.photoUrl} 
-              alt={userInfo.fullName}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          
-          {/* User Info */}
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold">{userInfo.fullName}</h3>
-            <p className="text-sm text-gray-600 flex items-center gap-1">
-              <User className="h-4 w-4" />
-              {userInfo.type}
-            </p>
-            <p className="text-sm text-gray-600">ID: {userInfo.idNumber}</p>
-            <p className="text-sm text-gray-600">Dept: {userInfo.department}</p>
-            
-            {userInfo.email && (
-              <p className="text-sm text-gray-600 flex items-center gap-1">
-                <Mail className="h-4 w-4" />
-                {userInfo.email}
-              </p>
+        <div className="flex items-center space-x-4 mb-4">
+          <div className="w-24 h-24 bg-gray-200 rounded-full overflow-hidden">
+            {userInfo.photo ? (
+              <img
+                src={userInfo.photo}
+                alt={userInfo.name}
+                className="w-full h-full object-cover"
+                onError={handleImageError}
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                <User className="w-12 h-12 text-gray-500" />
+              </div>
             )}
-            
-            {userInfo.phone && (
-              <p className="text-sm text-gray-600 flex items-center gap-1">
-                <Phone className="h-4 w-4" />
-                {userInfo.phone}
+          </div>
+          <div className="flex-1">
+            <div className="mb-2">
+              <p className="text-sm text-gray-500">Department</p>
+              <p className="font-medium">
+                {userInfo.grade || userInfo.job_title || 'N/A'}
               </p>
+            </div>
+            {userInfo.dob && (
+              <div className="mb-2">
+                <p className="text-sm text-gray-500">Date of Birth</p>
+                <p className="font-medium">{userInfo.dob}</p>
+              </div>
+            )}
+            {userInfo.email && (
+              <div className="mb-1">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">{userInfo.email}</span>
+                </div>
+              </div>
+            )}
+            {userInfo.phone && (
+              <div className="mb-1">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span>{userInfo.phone}</span>
+                </div>
+              </div>
             )}
           </div>
         </div>
-        
-        {/* Card Footer */}
-        <div className="mt-4 pt-2 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center">
+      </div>
+
+      {/* Card Footer */}
+      <div className="bg-gray-50 p-4 border-t border-gray-200">
+        <div className="flex justify-between items-center text-xs text-gray-500">
           <span>Issued: {card.issue_date ? new Date(card.issue_date).toLocaleDateString() : 'N/A'}</span>
           <span>Expires: {card.expiry_date ? new Date(card.expiry_date).toLocaleDateString() : 'N/A'}</span>
         </div>
-      </div>
-    </div>
-  );
-}
-        console.log('No cards found. Generating cards for existing users...');
-        const newCards = await generateCardsForUsers(studentsData, employeesData);
-        if (newCards.length > 0) {
-          console.log('Generated new cards:', newCards);
-          setCards(newCards);
-        } else {
-          console.log('No new cards were generated');
-        }
-      } else {
-        setCards(cardsData);
-      }
-      
-      setStudents(studentsData);
-      setEmployees(employeesData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Initialize data
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">ID Cards</h1>
-          <p className="text-gray-600 mt-1 sm:mt-2">Generated identification cards for students and employees</p>
-          
-          {selectedCards.length > 0 && (
-            <div className="mt-2 flex items-center space-x-2">
-              <span className="text-sm text-gray-600">{selectedCards.length} selected</span>
-              <button 
-                onClick={toggleSelectAll}
-                className="text-sm text-blue-600 hover:underline"
-              >
-                {allSelected ? 'Deselect all' : 'Select all'}
-              </button>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
-          {selectedCards.length > 0 && (
-            <button 
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className={`w-full sm:w-auto ${
-                isPrinting 
-                  ? 'bg-blue-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700'
-              } text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2`}
-            >
-              {isPrinting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Preparing Print...</span>
-                </>
-              ) : (
-                <>
-                  <Printer className="h-4 w-4" />
-                  <span>Print Selected ({selectedCards.length})</span>
-                </>
-              )}
-            </button>
-          )}
-          
-          <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
-            <button
-              onClick={() => setViewMode('all')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors whitespace-nowrap ${viewMode === 'all' ? 'bg-white shadow' : 'text-gray-600'}`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setViewMode('students')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors whitespace-nowrap ${viewMode === 'students' ? 'bg-white shadow' : 'text-gray-600'}`}
-            >
-              Students
-            </button>
-            <button
-              onClick={() => setViewMode('employees')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors whitespace-nowrap ${viewMode === 'employees' ? 'bg-white shadow' : 'text-gray-600'}`}
-            >
-              Employees
-            </button>
-          </div>
+        <div className="mt-2 flex justify-between items-center">
+          <span className={`inline-block px-2 py-1 text-xs rounded-full ${statusColor}`}>
+            {statusText}
+          </span>
         </div>
       </div>
 
-      {/* Print component ref - used for printing */}
-      <div ref={printComponentRef} className="hidden" />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredCards.map((card) => {
-          const userInfo = getUserInfo(card);
-          const isSelected = selectedCards.includes(card.id);
-          
-          return (
-            <CardItem 
-              key={card.id}
-              card={card}
-              userInfo={userInfo}
-              isSelected={isSelected}
-              onToggleSelect={toggleCardSelection}
-            />
-          );
-        })}
-      </div>
-      
-      {filteredCards.length === 0 && (
-        <div className="text-center py-12">
-          <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-gray-500">No ID cards found for the selected filter</p>
-        </div>
-      )}
-      
-      {cards.length === 0 && (
-        <div className="text-center py-12">
-          <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-gray-500">No ID cards have been generated yet</p>
+      {/* Selection checkbox */}
+      {onToggleSelect && (
+        <div className="absolute top-2 right-2 z-10">
+          <button
+            onClick={() => onToggleSelect(card.id)}
+            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+              isSelected
+                ? 'bg-blue-500 border-blue-500 text-white'
+                : 'bg-white border-gray-300 text-transparent hover:border-blue-400'
+            }`}
+            aria-label={isSelected ? 'Deselect card' : 'Select card'}
+          >
+            <Check className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>
   );
-}
+};
+
+export default IDCard;
