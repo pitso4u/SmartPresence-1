@@ -1,3 +1,116 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Print styles for reports */
+@media print {
+  /* Hide non-essential elements when printing */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Ensure proper page breaks */
+  .page-break {
+    page-break-before: always;
+  }
+  
+  /* Ensure tables don't break across pages */
+  table {
+    page-break-inside: avoid;
+  }
+  
+  /* Ensure proper spacing for printed content */
+  .print-content {
+    margin: 0;
+    padding: 20px;
+  }
+  
+  /* Hide navigation and other UI elements */
+  nav, 
+  .sidebar, 
+  .header,
+  button,
+  .tabs-list,
+  .report-filters {
+    display: none !important;
+  }
+  
+  /* Ensure content takes full width */
+  .container {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Ensure proper text colors for printing */
+  * {
+    color: black !important;
+    background: white !important;
+  }
+  
+  /* Ensure proper table styling for print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+    text-align: left !important;
+  }
+  
+  th {
+    background-color: #f8f9fa !important;
+    font-weight: bold !important;
+  }
+  
+  /* Ensure badges are visible in print */
+  .badge {
+    border: 1px solid #000 !important;
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Ensure proper font sizes for print */
+  body {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    margin: 10px 0 5px 0 !important;
+  }
+  
+  /* Ensure proper spacing for report headers */
+  .report-header {
+    margin-bottom: 20px !important;
+    border-bottom: 2px solid #000 !important;
+    padding-bottom: 10px !important;
+  }
+  
+  /* Ensure proper spacing for report content */
+  .report-content {
+    margin-top: 20px !important;
+  }
+  
+  /* Hide scrollbars and other UI elements */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+  
+  /* Ensure proper page margins */
+  @page {
+    margin: 1in;
+    size: A4;
+  }
+}
+
+/* Regular styles for screen display */
+@media screen {
+  .print-only {
+    display: none;
+  }
+}

@@ -2,6 +2,7 @@ const { run, query } = require('../db/config');
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger');
 const axios = require('axios');
+const attendanceService = require('../services/attendanceService');
 
 // Configuration
 const SYNC_ENDPOINT = process.env.API_BASE_URL ? 
@@ -12,64 +13,34 @@ const SYNC_ENDPOINT = process.env.API_BASE_URL ?
 let isSyncing = false;
 const pendingSyncs = [];
 
-// Helper function to determine attendance status based on time
-const getAttendanceStatus = (timestamp) => {
-  const time = new Date(timestamp);
-  const hours = time.getHours();
-  const minutes = time.getMinutes();
-  
-  // Convert to minutes since midnight for easier comparison
-  const totalMinutes = (hours * 60) + minutes;
-  
-  // Example thresholds (can be made configurable)
-  const onTimeThreshold = 8 * 60;  // 8:00 AM
-  const lateThreshold = 10 * 60;    // 10:00 AM
-  
-  if (totalMinutes <= onTimeThreshold) return 'present';
-  if (totalMinutes <= lateThreshold) return 'late';
-  return 'absent';
-};
-
-// Log attendance for a user
+// Log attendance for a user using the new attendance service
 const logAttendance = async (req, res) => {
   const { user_id, user_type, method = 'manual', match_confidence = null, isOffline = false } = req.body;
-  const client_uuid = req.body.client_uuid || uuidv4();
   const timestamp = req.body.timestamp || new Date().toISOString();
   
   try {
+    // Convert user_id to number if it's a string
+    const userId = parseInt(user_id, 10);
+    
     // In offline mode, we skip user verification and direct DB checks
     if (!isOffline) {
       // Get user details to ensure they exist
       const userTable = user_type === 'student' ? 'students' : 'employees';
-      const user = await query(`SELECT * FROM ${userTable} WHERE id = ?`, [user_id]);
+      const user = await query(`SELECT * FROM ${userTable} WHERE id = ?`, [userId]);
       
       if (!user || user.length === 0) {
         return res.status(404).json({ error: 'User not found' });
       }
     }
     
-    // Determine status based on time
-    const status = req.body.status || getAttendanceStatus(timestamp);
-    
-    // Insert attendance record
-    const result = await run(
-      `INSERT INTO attendance_logs 
-       (client_uuid, user_id, user_type, timestamp, status, method, match_confidence, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [client_uuid, user_id, user_type, timestamp, status, method, match_confidence, isOffline ? 0 : 1]
+    // Process attendance using the new service
+    const attendanceRecord = await attendanceService.processAttendance(
+      userId, 
+      user_type, 
+      timestamp, 
+      method, 
+      match_confidence
     );
-    
-    const attendanceRecord = {
-      id: result.lastID,
-      client_uuid,
-      user_id,
-      user_type,
-      timestamp,
-      status,
-      method,
-      match_confidence,
-      synced: isOffline ? 0 : 1
-    };
     
     // If this is an offline record, queue it for sync
     if (isOffline) {
@@ -156,48 +127,31 @@ const getAttendanceLogs = async (req, res) => {
   
   try {
     let sql = `
-      SELECT al.*, 
-             CASE 
-               WHEN s.full_name IS NOT NULL THEN s.full_name
-               WHEN e.full_name IS NOT NULL THEN e.full_name
-               ELSE 'Unknown User'
-             END as user_name
-      FROM attendance_logs al
-      LEFT JOIN students s ON al.user_id = s.id AND al.user_type = 'student'
-      LEFT JOIN employees e ON al.user_id = e.id AND al.user_type = 'employee'
-      WHERE 1=1
+      WITH latest_attendance AS (
+        SELECT 
+          *,
+          ROW_NUMBER() OVER (
+            PARTITION BY user_id, user_type, DATE(timestamp) 
+            ORDER BY COALESCE(updated_at, timestamp) DESC, timestamp DESC
+          ) as rn
+        FROM attendance_logs
+        WHERE 1=1
     `;
     
-    const params = [];
-    
-    if (user_id) {
-      sql += ' AND al.user_id = ?';
-      params.push(user_id);
-    }
-    
-    if (user_type && user_type !== 'all') {
-      sql += ' AND al.user_type = ?';
-      params.push(user_type);
-    }
-    
-    if (status) {
-      sql += ' AND al.status = ?';
-      params.push(status);
-    }
-    
-    if (start_date && start_date.trim() !== '') {
-      sql += ' AND al.timestamp >= ?';
-      params.push(new Date(start_date).toISOString());
-    }
-    
-    if (end_date && end_date.trim() !== '') {
-      sql += ' AND al.timestamp <= ?';
-      const endDateObj = new Date(end_date);
-      endDateObj.setHours(23, 59, 59, 999); // Set to the end of the day
-      params.push(endDateObj.toISOString());
-    }
-    
-    sql += ' ORDER BY al.timestamp DESC';
+    sql += `
+        )
+        SELECT al.*, 
+               CASE 
+                 WHEN s.full_name IS NOT NULL THEN s.full_name
+                 WHEN e.full_name IS NOT NULL THEN e.full_name
+                 ELSE 'Unknown User'
+               END as user_name
+        FROM latest_attendance al
+        LEFT JOIN students s ON al.user_id = s.id AND al.user_type = 'student'
+        LEFT JOIN employees e ON al.user_id = e.id AND al.user_type = 'employee'
+        WHERE al.rn = 1
+        ORDER BY al.timestamp DESC
+    `;
 
 
 
@@ -215,12 +169,22 @@ const getAttendanceSummary = async (req, res) => {
   const { start_date, end_date, user_type } = req.query;
   
   try {
+    // Get the most recent attendance record for each user per day
+    // Order by updated_at if available, otherwise by timestamp
     let sql = `
-      SELECT 
-        status,
-        COUNT(*) as count
-      FROM attendance_logs
-      WHERE 1=1
+      WITH latest_attendance AS (
+        SELECT 
+          user_id,
+          user_type,
+          status,
+          timestamp,
+          updated_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY user_id, user_type, DATE(timestamp) 
+            ORDER BY COALESCE(updated_at, timestamp) DESC, timestamp DESC
+          ) as rn
+        FROM attendance_logs
+        WHERE 1=1
     `;
     
     const params = [];
@@ -240,7 +204,15 @@ const getAttendanceSummary = async (req, res) => {
       params.push(user_type);
     }
     
-    sql += ' GROUP BY status';
+    sql += `
+        )
+        SELECT 
+          status,
+          COUNT(*) as count
+        FROM latest_attendance
+        WHERE rn = 1
+        GROUP BY status
+    `;
     
     const result = await query(sql, params);
     
@@ -248,8 +220,9 @@ const getAttendanceSummary = async (req, res) => {
     const summary = result.reduce((acc, { status, count }) => {
       acc[status] = parseInt(count);
       return acc;
-    }, { present: 0, late: 0, absent: 0 });
+    }, { present: 0, late: 0, absent: 0, excused: 0 });
     
+    console.log('Attendance summary:', summary);
     res.json(summary);
     
   } catch (error) {
@@ -295,19 +268,28 @@ const getUserAttendance = async (req, res) => {
 // Update attendance record (for manual corrections)
 const updateAttendance = async (req, res) => {
   const { id } = req.params;
-  const { status, notes } = req.body;
+  const { status } = req.body;
   
   try {
-    await run(
-      'UPDATE attendance_logs SET status = ?, notes = ? WHERE id = ?',
-      [status, notes, id]
-    );
+    // First, get the current record to understand what we're updating
+    const currentRecord = await query('SELECT * FROM attendance_logs WHERE id = ?', [id]);
     
-    const updated = await query('SELECT * FROM attendance_logs WHERE id = ?', [id]);
-    
-    if (!updated || updated.length === 0) {
+    if (!currentRecord || currentRecord.length === 0) {
       return res.status(404).json({ error: 'Attendance record not found' });
     }
+    
+    const record = currentRecord[0];
+    
+    // Update the record with the new status
+    await run(
+      'UPDATE attendance_logs SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [status, id]
+    );
+    
+    // Get the updated record
+    const updated = await query('SELECT * FROM attendance_logs WHERE id = ?', [id]);
+    
+    logger.info(`Updated attendance record ${id} for user ${record.user_id} (${record.user_type}) from ${record.status} to ${status}`);
     
     res.json(updated[0]);
     
@@ -415,13 +397,175 @@ const checkUnsynced = async (req, res) => {
   }
 };
 
+// Get face recognition logs for a specific user
+const getFaceRecognitionLogs = async (req, res) => {
+  const { user_id, user_type } = req.params;
+  const { start_date, end_date } = req.query;
+  
+  try {
+    let sql = `
+      SELECT al.*, 
+             CASE 
+               WHEN s.full_name IS NOT NULL THEN s.full_name
+               WHEN e.full_name IS NOT NULL THEN e.full_name
+               ELSE 'Unknown User'
+             END as user_name
+      FROM attendance_logs al
+      LEFT JOIN students s ON al.user_id = s.id AND al.user_type = 'student'
+      LEFT JOIN employees e ON al.user_id = e.id AND al.user_type = 'employee'
+      WHERE al.user_id = ? AND al.user_type = ? AND al.method = 'face_recognition'
+    `;
+    
+    const params = [user_id, user_type];
+    
+    if (start_date) {
+      sql += ' AND al.timestamp >= ?';
+      params.push(new Date(start_date).toISOString());
+    }
+    
+    if (end_date) {
+      sql += ' AND al.timestamp <= ?';
+      const endDateObj = new Date(end_date);
+      endDateObj.setHours(23, 59, 59, 999);
+      params.push(endDateObj.toISOString());
+    }
+    
+    sql += ' ORDER BY al.timestamp DESC';
+    
+    const logs = await query(sql, params);
+    
+    res.json(logs);
+    
+  } catch (error) {
+    logger.error('Error fetching face recognition logs:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch face recognition logs',
+      details: error.message 
+    });
+  }
+};
+
+// Log face recognition attendance
+const logFaceRecognition = async (req, res) => {
+  try {
+    const { user_id, user_type, match_confidence } = req.body;
+    const timestamp = new Date().toISOString();
+    
+    // Process attendance using the new service
+    const attendanceRecord = await attendanceService.processAttendance(
+      user_id,
+      user_type,
+      timestamp,
+      'face_recognition',
+      match_confidence
+    );
+    
+    res.status(201).json(attendanceRecord);
+    
+  } catch (error) {
+    logger.error('Error in face recognition attendance:', error);
+    res.status(500).json({ 
+      error: 'Failed to log face recognition attendance',
+      details: error.message 
+    });
+  }
+};
+
+// Get face recognition summary
+const getFaceRecognitionSummary = async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    
+    let sql = `
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM attendance_logs
+      WHERE method = 'face_recognition'
+    `;
+    
+    const params = [];
+    
+    if (start_date) {
+      sql += ' AND timestamp >= ?';
+      params.push(new Date(start_date).toISOString());
+    }
+    
+    if (end_date) {
+      sql += ' AND timestamp <= ?';
+      const endDateObj = new Date(end_date);
+      endDateObj.setHours(23, 59, 59, 999);
+      params.push(endDateObj.toISOString());
+    }
+    
+    sql += ' GROUP BY status';
+    
+    const result = await query(sql, params);
+    
+    // Convert to an object with status as keys
+    const summary = result.reduce((acc, { status, count }) => {
+      acc[status] = parseInt(count);
+      return acc;
+    }, { present: 0, late: 0, absent: 0 });
+    
+    // Add total count
+    summary.total = Object.values(summary).reduce((a, b) => a + b, 0);
+    
+    res.json(summary);
+    
+  } catch (error) {
+    logger.error('Error fetching face recognition summary:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch face recognition summary',
+      details: error.message 
+    });
+  }
+};
+
+// Initialize daily attendance manually
+const initializeDailyAttendance = async (req, res) => {
+  try {
+    const count = await attendanceService.initializeDailyAttendance();
+    res.json({ 
+      message: `Daily attendance initialized for ${count} people`,
+      count 
+    });
+  } catch (error) {
+    logger.error('Error initializing daily attendance:', error);
+    res.status(500).json({ 
+      error: 'Failed to initialize daily attendance',
+      details: error.message 
+    });
+  }
+};
+
+// Get today's attendance summary
+const getTodayAttendanceSummary = async (req, res) => {
+  try {
+    const today = new Date();
+    const summary = await attendanceService.getAttendanceSummary(today);
+    res.json(summary);
+  } catch (error) {
+    logger.error('Error fetching today\'s attendance summary:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch today\'s attendance summary',
+      details: error.message 
+    });
+  }
+};
+
 module.exports = {
   logAttendance,
+  getFaceRecognitionLogs,
+  logFaceRecognition,
   getAttendanceLogs,
   getAttendanceSummary,
+  getFaceRecognitionSummary,
   getUserAttendance,
   updateAttendance,
   deleteAttendance,
   syncAttendance,
-  checkUnsynced
+  checkUnsynced,
+  initializeDailyAttendance,
+  getTodayAttendanceSummary
 };

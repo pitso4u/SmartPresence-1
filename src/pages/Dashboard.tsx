@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import reportService from '../services/reportService';
 import apiClient from '@/config/api';
+import { DashboardAnalytics } from '@/components/DashboardAnalytics';
+import { NotificationSystem } from '@/components/NotificationSystem';
 
 interface ReportSummaryData {
   total?: {
@@ -214,7 +216,6 @@ export function Dashboard() {
         : 'Failed to load dashboard data. Please try again later.';
         
       setError(userFriendlyError);
-      setError(`Failed to load dashboard data: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -298,6 +299,7 @@ export function Dashboard() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
+          <NotificationSystem />
           <Button 
             variant="outline" 
             size="sm" 
@@ -580,6 +582,11 @@ export function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Enhanced Analytics Dashboard */}
+      <div className="mt-8">
+        <DashboardAnalytics isLoading={isLoading} />
       </div>
 
       {/* Quick Actions and Recent Activity */}

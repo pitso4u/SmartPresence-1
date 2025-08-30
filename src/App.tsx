@@ -14,6 +14,7 @@ import { Incidents } from './pages/Incidents';
 import { Cards } from './pages/Cards';
 import Reports from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { FaceRecognitionEnrollment } from './pages/FaceRecognitionEnrollment';
 
 function App() {
   return (
@@ -91,6 +92,14 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Reports />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/face-recognition" element={
+            <ProtectedRoute>
+              <Layout>
+                <FaceRecognitionEnrollment />
               </Layout>
             </ProtectedRoute>
           } />
